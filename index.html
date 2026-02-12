@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Data Cleaner SaaS</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .upload-area { border: 3px dashed #ccc; padding: 40px; text-align: center; border-radius: 10px; }
+        .upload-area:hover { border-color: #007bff; background: #f8f9fa; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .issue { background: #fff3cd; padding: 10px; margin: 5px 0; border-radius: 5px; }
+        .success { background: #d4edda; padding: 10px; margin: 5px 0; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #007bff; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🧹 Data Cleaner SaaS</h1>
+    
+    <div id="auth-section">
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="login()">Login</button>
+        <button onclick="register()">Register</button>
+    </div>
+
+    <div id="app-section" style="display:none;">
+        <p>Welcome! <button onclick="logout()">Logout</button></p>
+        
+        <div class="upload-area" id="drop-zone">
+            <h3>Drop CSV or Excel file here</h3>
+            <p>or</p>
+            <input type="file" id="file-input" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
+        </div>
+
+        <div id="analysis-results"></div>
+        <div id="clean-results"></div>
+        <div id="history"></div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('token');
+        if (token) showApp();
+
+        async function login() {
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    email: document.getElementById('email').value,
+                    password: document.getElementById('password').value
+                })
+            });
+            const data = await res.json();
+            if (data.token) {
+                token = data.token;
+                localStorage.setItem('token', token);
+                showApp();
+            } else {
+                alert(data.error);
+            }
+        }
+
+        function showApp() {
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('app-section').style.display = 'block';
+            loadHistory();
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            location.reload();
+        }
+
+        async function handleFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetch('/upload', {
+                method: 'POST',
+                headers: {'Authorization': token},
+                body: formData
+            });
+            
+            const data = await res.json();
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            displayAnalysis(data);
+        }
+
+        function displayAnalysis(data) {
+            let html = `<h3>Analysis Results</h3>`;
+            html += `<div class="issue">Empty cells: ${data.analysis.empty_cells}</div>`;
+            html += `<div class="issue">Duplicate rows: ${data.analysis.duplicate_rows}</div>`;
+            html += `<div class="issue">Total rows: ${data.analysis.total_rows}</div>`;
+            
+            if (Object.keys(data.analysis.column_issues).length > 0) {
+                html += `<h4>Column Issues:</h4>`;
+                for (const [col, issues] of Object.entries(data.analysis.column_issues)) {
+                    html += `<div class="issue"><strong>${col}:</strong> ${issues.join(', ')}</div>`;
+                }
+            }
+            
+            html += `<button onclick="cleanFile('${data.file_id}')">Auto-Clean File</button>`;
+            html += `<h4>Preview:</h4>`;
+            html += generateTable(data.preview);
+            
+            document.getElementById('analysis-results').innerHTML = html;
+        }
+
+        function generateTable(data) {
+            if (!data || data.length === 0) return '';
+            const headers = Object.keys(data[0]);
+            let html = '<table><tr>';
+            headers.forEach(h => html += `<th>${h}</th>`);
+            html += '</tr>';
+            data.forEach(row => {
+                html += '<tr>';
+                headers.forEach(h => html += `<td>${row[h]}</td>`);
+                html += '</tr>';
+            });
+            return html + '</table>';
+        }
+
+        async function cleanFile(fileId) {
+            const res = await fetch('/clean', {
+                method: 'POST',
+                headers: {
+                    'Authorization': token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({file_id: fileId})
+            });
+            
+            const data = await res.json();
+            if (data.success) {
+                let html = `<h3>✅ Cleaning Complete!</h3>`;
+                html += `<div class="success">Rows before: ${data.report.rows_before}</div>`;
+                html += `<div class="success">Rows after: ${data.report.rows_after}</div>`;
+                html += `<h4>Changes made:</h4>`;
+                data.report.changes.forEach(change => {
+                    html += `<div class="success">• ${change}</div>`;
+                });
+                html += `<a href="${data.download_url}" download><button>Download Cleaned File</button></a>`;
+                html += `<h4>Cleaned Preview:</h4>`;
+                html += generateTable(data.preview);
+                
+                document.getElementById('clean-results').innerHTML = html;
+                loadHistory();
+            }
+        }
+
+        async function loadHistory() {
+            const res = await fetch('/history', {
+                headers: {'Authorization': token}
+            });
+            const data = await res.json();
+            
+            let html = `<h3>History (${data.files_cleaned} files cleaned)</h3>`;
+            html += `<p>Subscription: ${data.subscription}</p>`;
+            
+            if (data.history.length > 0) {
+                html += '<table><tr><th>Date</th><th>File</th><th>Issues Found</th><th>Rows Cleaned</th></tr>';
+                data.history.forEach(job => {
+                    html += `<tr>
+                        <td>${new Date(job.date).toLocaleDateString()}</td>
+                        <td>${job.original}</td>
+                        <td>${job.issues}</td>
+                        <td>${job.rows_cleaned}</td>
+                    </tr>`;
+                });
+                html += '</table>';
+            }
+            
+            document.getElementById('history').innerHTML = html;
+        }
+
+        // Drag and drop
+        const dropZone = document.getElementById('drop-zone');
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = '#007bff'; };
+        dropZone.ondragleave = () => { dropZone.style.borderColor = '#ccc'; };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#ccc';
+            handleFile(e.dataTransfer.files[0]);
+        };
+    </script>
+</body>
+</html>
