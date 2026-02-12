@@ -1,26 +1,45 @@
+# =========================
 # Python
+# =========================
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Virtual Environments
 venv/
 env/
+.venv/
+
+# =========================
+# Database
+# =========================
+datacleaner.db
 *.sqlite3
 *.db
 
-# Uploads
+# =========================
+# Uploads (User Files)
+# =========================
 uploads/*
 !uploads/.gitkeep
 
-# Environment
+# =========================
+# Environment Variables
+# =========================
 .env
-.env.local
+.env.*
+!.env.example
 
+# =========================
 # IDE
+# =========================
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS
+# =========================
+# OS Files
+# =========================
 .DS_Store
 Thumbs.db
