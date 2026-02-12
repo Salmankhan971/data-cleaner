@@ -8,8 +8,10 @@ import uuid
 from datetime import datetime
 import jwt
 from functools import wraps
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///datacleaner.db'
 app.config['SECRET_KEY'] = 'your-secret-key'
 app.config['UPLOAD_FOLDER'] = 'uploads/'
