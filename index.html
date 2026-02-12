@@ -2,409 +2,316 @@
 <html>
 <head>
     <title>Data Cleaner SaaS</title>
+    <meta charset="UTF-8">
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            max-width: 800px; 
-            margin: 50px auto; 
-            padding: 20px; 
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
         }
-        .upload-area { 
-            border: 3px dashed #ccc; 
-            padding: 40px; 
-            text-align: center; 
-            border-radius: 10px; 
+        .upload-area {
+            border: 3px dashed #ccc;
+            padding: 40px;
+            text-align: center;
+            border-radius: 10px;
             margin: 20px 0;
         }
-        .upload-area:hover { 
-            border-color: #007bff; 
-            background: #f8f9fa; 
+        .upload-area:hover {
+            border-color: #007bff;
+            background: #f8f9fa;
         }
-        button { 
-            background: #007bff; 
-            color: white; 
-            padding: 10px 20px; 
-            border: none; 
-            border-radius: 5px; 
-            cursor: pointer; 
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
             margin: 5px;
         }
-        button:hover { 
-            background: #0056b3; 
-        }
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        .issue { 
-            background: #fff3cd; 
-            padding: 10px; 
-            margin: 5px 0; 
-            border-radius: 5px; 
-        }
-        .success { 
-            background: #d4edda; 
-            padding: 10px; 
-            margin: 5px 0; 
-            border-radius: 5px; 
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        .success {
+            background: #d4edda;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px 0;
         }
         .error {
             background: #f8d7da;
             color: #721c24;
             padding: 10px;
-            margin: 5px 0;
             border-radius: 5px;
+            margin: 5px 0;
         }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin: 20px 0; 
+        .info {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px 0;
         }
-        th, td { 
-            border: 1px solid #ddd; 
-            padding: 8px; 
-            text-align: left; 
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
         }
-        th { 
-            background: #007bff; 
-            color: white; 
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        th {
+            background: #007bff;
+            color: white;
         }
         input {
             padding: 8px;
             margin: 5px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        #status {
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 5px;
-            display: none;
-        }
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #007bff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
-    <h1>🧹 Data Cleaner SaaS</h1>
-    
-    <div id="status"></div>
 
-    <div id="auth-section">
-        <input type="email" id="email" placeholder="Email" value="test@example.com">
-        <input type="password" id="password" placeholder="Password" value="password123">
-        <button onclick="login()" id="loginBtn">Login</button>
-        <button onclick="register()" id="registerBtn">Register</button>
-        <div id="auth-loading" style="display:none;">
-            <div class="loading"></div> Processing...
-        </div>
+<h1>🧹 Data Cleaner SaaS</h1>
+
+<div id="status"></div>
+
+<div id="auth-section">
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+    <button onclick="register()">Register</button>
+</div>
+
+<div id="app-section" style="display:none;">
+    <p>
+        Welcome <strong id="user-email"></strong>
+        <button onclick="logout()">Logout</button>
+    </p>
+
+    <div class="upload-area" id="drop-zone">
+        <h3>Drop CSV or Excel file here</h3>
+        <input type="file" accept=".csv,.xlsx,.xls"
+               onchange="handleFile(this.files[0])">
     </div>
 
-    <div id="app-section" style="display:none;">
-        <p>Welcome <span id="user-email"></span>! 
-        <button onclick="logout()">Logout</button></p>
-        
-        <div class="upload-area" id="drop-zone">
-            <h3>Drop CSV or Excel file here</h3>
-            <p>or</p>
-            <input type="file" id="file-input" accept=".csv,.xlsx,.xls" onchange="handleFile(this.files[0])">
-        </div>
+    <div id="analysis-results"></div>
+    <div id="clean-results"></div>
+    <div id="history"></div>
+</div>
 
-        <div id="analysis-results"></div>
-        <div id="clean-results"></div>
-        <div id="history"></div>
-    </div>
+<script>
+const API_URL = "http://localhost:5000";
 
-    <script>
-        // API Configuration - Change this to your backend URL
-        const API_URL = 'http://localhost:5000';
-        
-        let token = localStorage.getItem('token');
-        let userEmail = localStorage.getItem('userEmail');
-        
-        if (token) {
-            showApp();
-        }
+let token = localStorage.getItem("token");
+let userEmail = localStorage.getItem("userEmail");
 
-        function showStatus(message, type = 'error') {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = type;
-            status.style.display = 'block';
-            setTimeout(() => status.style.display = 'none', 5000);
-        }
+if (token) showApp();
 
-        function setLoading(isLoading) {
-            document.getElementById('loginBtn').disabled = isLoading;
-            document.getElementById('registerBtn').disabled = isLoading;
-            document.getElementById('auth-loading').style.display = isLoading ? 'block' : 'none';
-        }
+function showStatus(message, type="error") {
+    const div = document.getElementById("status");
+    div.className = type;
+    div.innerHTML = message;
+}
 
-        async function makeRequest(url, options = {}) {
-            try {
-                const response = await fetch(url, {
-                    ...options,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...options.headers
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                return data;
-            } catch (error) {
-                console.error('Request failed:', error);
-                throw error;
-            }
-        }
+function authHeaders() {
+    return {
+        "Authorization": "Bearer " + token
+    };
+}
 
-        async function register() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            
-            if (!email || !password) {
-                showStatus('Please enter email and password');
-                return;
-            }
+async function register() {
+    const email = emailInput();
+    const password = passwordInput();
 
-            setLoading(true);
-            
-            try {
-                const data = await makeRequest(`${API_URL}/register`, {
-                    method: 'POST',
-                    body: JSON.stringify({ email, password })
-                });
-                
-                token = data.token;
-                userEmail = email;
-                localStorage.setItem('token', token);
-                localStorage.setItem('userEmail', email);
-                showStatus('Registration successful!', 'success');
-                showApp();
-            } catch (error) {
-                showStatus(error.message || 'Registration failed. Email may already exist.');
-            } finally {
-                setLoading(false);
-            }
-        }
+    try {
+        const res = await fetch(`${API_URL}/register`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({email, password})
+        });
 
-        async function login() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            
-            if (!email || !password) {
-                showStatus('Please enter email and password');
-                return;
-            }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
 
-            setLoading(true);
-            
-            try {
-                const data = await makeRequest(`${API_URL}/login`, {
-                    method: 'POST',
-                    body: JSON.stringify({ email, password })
-                });
-                
-                token = data.token;
-                userEmail = email;
-                localStorage.setItem('token', token);
-                localStorage.setItem('userEmail', email);
-                showStatus('Login successful!', 'success');
-                showApp();
-            } catch (error) {
-                showStatus(error.message || 'Invalid email or password');
-            } finally {
-                setLoading(false);
-            }
-        }
+        token = data.token;
+        localStorage.setItem("token", token);
+        localStorage.setItem("userEmail", email);
+        showApp();
+        showStatus("Registration successful!", "success");
+    } catch (e) {
+        showStatus(e.message);
+    }
+}
 
-        function showApp() {
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('app-section').style.display = 'block';
-            document.getElementById('user-email').textContent = userEmail || '';
-            loadHistory();
-        }
+async function login() {
+    const email = emailInput();
+    const password = passwordInput();
 
-        function logout() {
-            localStorage.removeItem('token');
-            localStorage.removeItem('userEmail');
-            token = null;
-            userEmail = null;
-            location.reload();
-        }
+    try {
+        const res = await fetch(`${API_URL}/login`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({email, password})
+        });
 
-        async function handleFile(file) {
-            if (!file) return;
-            
-            const formData = new FormData();
-            formData.append('file', file);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
 
-            showStatus('Uploading file...', 'success');
+        token = data.token;
+        localStorage.setItem("token", token);
+        localStorage.setItem("userEmail", email);
+        showApp();
+        showStatus("Login successful!", "success");
+    } catch (e) {
+        showStatus(e.message);
+    }
+}
 
-            try {
-                const response = await fetch(`${API_URL}/upload`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': token
-                    },
-                    body: formData
-                });
-                
-                const data = await response.json();
-                
-                if (data.error) {
-                    throw new Error(data.error);
-                }
+function emailInput() {
+    return document.getElementById("email").value;
+}
+function passwordInput() {
+    return document.getElementById("password").value;
+}
 
-                displayAnalysis(data);
-                showStatus('File uploaded successfully!', 'success');
-            } catch (error) {
-                showStatus(error.message || 'Upload failed. Check if backend is running.');
-            }
-        }
+function showApp() {
+    document.getElementById("auth-section").style.display = "none";
+    document.getElementById("app-section").style.display = "block";
+    document.getElementById("user-email").textContent = userEmail;
+    loadHistory();
+}
 
-        function displayAnalysis(data) {
-            let html = `<h3>📊 Analysis Results</h3>`;
-            html += `<div class="issue">Empty cells: ${data.analysis.empty_cells}</div>`;
-            html += `<div class="issue">Duplicate rows: ${data.analysis.duplicate_rows}</div>`;
-            html += `<div class="issue">Total rows: ${data.analysis.total_rows}</div>`;
-            html += `<div class="issue">Total columns: ${data.analysis.total_columns}</div>`;
-            
-            if (Object.keys(data.analysis.column_issues).length > 0) {
-                html += `<h4>⚠️ Column Issues:</h4>`;
-                for (const [col, issues] of Object.entries(data.analysis.column_issues)) {
-                    html += `<div class="issue"><strong>${col}:</strong> ${issues.join(', ')}</div>`;
-                }
-            }
-            
-            html += `<button onclick="cleanFile('${data.file_id}')">🧹 Auto-Clean File</button>`;
-            html += `<h4>Preview (First 5 rows):</h4>`;
-            html += generateTable(data.preview);
-            
-            document.getElementById('analysis-results').innerHTML = html;
-            document.getElementById('clean-results').innerHTML = '';
-        }
+function logout() {
+    localStorage.clear();
+    location.reload();
+}
 
-        function generateTable(data) {
-            if (!data || data.length === 0) return '<p>No data preview available</p>';
-            const headers = Object.keys(data[0]);
-            let html = '<table><tr>';
-            headers.forEach(h => html += `<th>${h}</th>`);
-            html += '</tr>';
-            data.forEach(row => {
-                html += '<tr>';
-                headers.forEach(h => html += `<td>${row[h] !== null ? row[h] : '<em>null</em>'}</td>`);
-                html += '</tr>';
+async function handleFile(file) {
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+        const res = await fetch(`${API_URL}/upload`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: formData
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        displayAnalysis(data);
+        showStatus("File uploaded successfully!", "success");
+    } catch (e) {
+        showStatus(e.message);
+    }
+}
+
+function displayAnalysis(data) {
+    let html = `
+        <h3>📊 Analysis</h3>
+        <div class="info">Empty cells: ${data.analysis.empty_cells}</div>
+        <div class="info">Duplicate rows: ${data.analysis.duplicate_rows}</div>
+        <div class="info">Total rows: ${data.analysis.total_rows}</div>
+        <div class="info">Total columns: ${data.analysis.total_columns}</div>
+        <button onclick="cleanFile('${data.file_id}')">🧹 Clean File</button>
+        <h4>Preview</h4>
+        ${generateTable(data.preview)}
+    `;
+
+    document.getElementById("analysis-results").innerHTML = html;
+}
+
+async function cleanFile(fileId) {
+    try {
+        const res = await fetch(`${API_URL}/clean`, {
+            method: "POST",
+            headers: {
+                ...authHeaders(),
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({file_id: fileId})
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        let html = `
+            <h3>✅ Clean Complete</h3>
+            <div class="success">Rows before: ${data.report.rows_before}</div>
+            <div class="success">Rows after: ${data.report.rows_after}</div>
+            <a href="${API_URL}${data.download_url}" target="_blank">
+                <button>Download Cleaned File</button>
+            </a>
+            <h4>Preview</h4>
+            ${generateTable(data.preview)}
+        `;
+
+        document.getElementById("clean-results").innerHTML = html;
+        loadHistory();
+    } catch (e) {
+        showStatus(e.message);
+    }
+}
+
+function generateTable(data) {
+    if (!data || data.length === 0) return "<p>No preview</p>";
+
+    const headers = Object.keys(data[0]);
+    let html = "<table><tr>";
+    headers.forEach(h => html += `<th>${h}</th>`);
+    html += "</tr>";
+
+    data.forEach(row => {
+        html += "<tr>";
+        headers.forEach(h => html += `<td>${row[h] ?? ""}</td>`);
+        html += "</tr>";
+    });
+
+    return html + "</table>";
+}
+
+async function loadHistory() {
+    try {
+        const res = await fetch(`${API_URL}/history`, {
+            headers: authHeaders()
+        });
+
+        const data = await res.json();
+        if (!res.ok) return;
+
+        let html = `<h3>📜 History (${data.files_cleaned})</h3>`;
+        html += `<p>Subscription: ${data.subscription}</p>`;
+
+        if (data.history.length > 0) {
+            html += "<table><tr><th>Date</th><th>File</th><th>Issues</th></tr>";
+            data.history.forEach(j => {
+                html += `<tr>
+                    <td>${new Date(j.date).toLocaleDateString()}</td>
+                    <td>${j.original}</td>
+                    <td>${j.issues}</td>
+                </tr>`;
             });
-            return html + '</table>';
+            html += "</table>";
         }
 
-        async function cleanFile(fileId) {
-            showStatus('Cleaning file...', 'success');
-            
-            try {
-                const response = await fetch(`${API_URL}/clean`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': token,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ file_id: fileId })
-                });
-                
-                const data = await response.json();
-                
-                if (data.error) {
-                    throw new Error(data.error);
-                }
+        document.getElementById("history").innerHTML = html;
+    } catch {}
+}
 
-                let html = `<h3>✅ Cleaning Complete!</h3>`;
-                html += `<div class="success">Rows before: ${data.report.rows_before}</div>`;
-                html += `<div class="success">Rows after: ${data.report.rows_after}</div>`;
-                html += `<h4>Changes made:</h4>`;
-                data.report.changes.forEach(change => {
-                    html += `<div class="success">• ${change}</div>`;
-                });
-                
-                // Create download link
-                const downloadUrl = `${API_URL}${data.download_url}`;
-                html += `<a href="${downloadUrl}" target="_blank" download>
-                    <button>⬇️ Download Cleaned File</button>
-                </a>`;
-                
-                html += `<h4>Cleaned Preview:</h4>`;
-                html += generateTable(data.preview);
-                
-                document.getElementById('clean-results').innerHTML = html;
-                loadHistory();
-                showStatus('File cleaned successfully!', 'success');
-            } catch (error) {
-                showStatus(error.message || 'Cleaning failed');
-            }
-        }
+// Drag and drop
+const dropZone = document.getElementById("drop-zone");
+dropZone.ondragover = e => e.preventDefault();
+dropZone.ondrop = e => {
+    e.preventDefault();
+    handleFile(e.dataTransfer.files[0]);
+};
+</script>
 
-        async function loadHistory() {
-            try {
-                const response = await fetch(`${API_URL}/history`, {
-                    headers: { 'Authorization': token }
-                });
-                
-                const data = await response.json();
-                
-                let html = `<h3>📜 History (${data.files_cleaned} files cleaned)</h3>`;
-                html += `<p>Subscription: <strong>${data.subscription}</strong></p>`;
-                
-                if (data.history && data.history.length > 0) {
-                    html += '<table><tr><th>Date</th><th>File</th><th>Issues</th><th>Rows Cleaned</th></tr>';
-                    data.history.forEach(job => {
-                        html += `<tr>
-                            <td>${new Date(job.date).toLocaleDateString()}</td>
-                            <td>${job.original}</td>
-                            <td>${job.issues}</td>
-                            <td>${job.rows_cleaned}</td>
-                        </tr>`;
-                    });
-                    html += '</table>';
-                } else {
-                    html += '<p>No cleaning history yet.</p>';
-                }
-                
-                document.getElementById('history').innerHTML = html;
-            } catch (error) {
-                console.error('Failed to load history:', error);
-            }
-        }
-
-        // Drag and drop
-        const dropZone = document.getElementById('drop-zone');
-        dropZone.ondragover = (e) => { 
-            e.preventDefault(); 
-            dropZone.style.borderColor = '#007bff'; 
-        };
-        dropZone.ondragleave = () => { 
-            dropZone.style.borderColor = '#ccc'; 
-        };
-        dropZone.ondrop = (e) => {
-            e.preventDefault();
-            dropZone.style.borderColor = '#ccc';
-            handleFile(e.dataTransfer.files[0]);
-        };
-    </script>
 </body>
 </html>
